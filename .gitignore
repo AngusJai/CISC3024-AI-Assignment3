@@ -7,11 +7,16 @@ __pycache__/
 .pytest_cache/
 .ipynb_checkpoints/
 data/cache/orl/
+data/cache/yale/
+data/cache/Face-Recognition-master/
+data/cache/*.zip
+data/cache/*.bin
 *.npz
-data/cache/orl_faces.zip
 _tectonic
 report.aux
 report.log
 report.out
 report.synctex.gz
 outputs/pdf_preview/
+# keep att_faces.zip for ORL reproducibility
+!data/cache/att_faces.zip

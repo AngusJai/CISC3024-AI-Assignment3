@@ -151,6 +151,7 @@ Implementation choices (after fact-check alignment):
   \item \textbf{Preprocess:} per-feature \textbf{z-score} fit on the training matrix (paper protocol).
   \item \textbf{Reconstruction:} fit on a \textbf{polluted} set (320 clean + 80 block-occluded), score vs.\ clean ground truth; repeat with salt-and-pepper pollution.
   \item \textbf{Recognition:} 7 train / 3 test per subject, 1-NN, average over \textbf{seeds 0--2}.
+  \item \textbf{Extras:} $\eta$ ablation, paper-style relative-error curves, eigenface comparison strip, and a second dataset (classic Yale).
 \end{itemize}
 I did not write code myself; I approved the plan, checked figures/metrics, and will submit the PDF on Moodle.
 
@@ -244,21 +245,61 @@ At high $r$ all methods saturate above $98\%$; RSPCA edges $r{=}40$ ($0.986{\pm}
 \label{fig:recog}
 \end{figure}
 
-\paragraph{Qualitative components and galleries}
-Figure~\ref{fig:eigen} compares PCA vs.\ RSSPCA loadings learned on the polluted set.
-Figures~\ref{fig:galp}--\ref{fig:galc} show reconstructions of polluted and clean faces from the polluted-fit subspace.
+\paragraph{Paper-style relative error}
+Figure~\ref{fig:rel} plots relative Frobenius error $\|X-\hat X\|_F/\|X\|_F$ for the block polluted-fit protocol, the quantity emphasised in the paper's reconstruction figures.
 
 \begin{figure}[H]
 \centering
-\begin{minipage}{0.48\linewidth}
+\safeimg[0.88\linewidth]{reconstruction_rel_error_curves.png}
+\caption{Block polluted-fit relative reconstruction error vs.\ \#components.}
+\label{fig:rel}
+\end{figure}
+
+\paragraph{$\eta$ ablation}
+Figure~\ref{fig:eta} sweeps $\lg\eta_1$ (fixed $\eta_2{=}1$) and $\lg\eta_2$ (fixed $\eta_1{=}0.001$) at $r{=}20$.
+Recognition stays high across a wide range; reconstruction PSNR drops when either weight is set too large (over-sparsity or over-smoothing), which supports keeping the paper Table~1 defaults rather than pushing $\eta$ upward.
+
+\begin{figure}[H]
 \centering
-\safeimg[0.98\linewidth]{eigenfaces_pca.png}
-\end{minipage}\hfill
-\begin{minipage}{0.48\linewidth}
+\safeimg[0.95\linewidth]{eta_ablation.png}
+\caption{RSSPCA $\eta$ ablation on ORL (recognition + salt-pepper recon).}
+\label{fig:eta}
+\end{figure}
+
+\paragraph{Second dataset: classic Yale}
+Official Yale/LFW CDNs returned HTTP 403, so we used a public GitHub mirror of the classic Yale Face Database (15 subjects $\times$ 11 expressions, 165 images), resized to $56\times 46$ with z-score.
+Salt-and-pepper polluted-fit at $r{=}20$ again favours smooth methods (Table~\ref{tab:yale}): RSMPCA 21.35\,dB and RSSPCA 21.25\,dB vs.\ PCA 20.40\,dB.
+Recognition at $r{=}30$ is saturated and similar across methods ($\approx 0.86$--$0.87$), so Yale mainly strengthens the \emph{reconstruction} claim.
+
+\begin{table}[H]
 \centering
-\safeimg[0.98\linewidth]{eigenfaces_rsspca.png}
-\end{minipage}
-\caption{Left: PCA. Right: RSSPCA (smooth + sparse structure) under polluted-fit.}
+\caption{Yale salt-and-pepper polluted-fit PSNR at $r{=}20$.}
+\label{tab:yale}
+\small
+\begin{tabular}{lccccc}
+\toprule
+ & PCA & PCA-L1 & RSPCA & RSMPCA & RSSPCA \\
+\midrule
+PSNR (dB) & 20.40 & 20.75 & 20.70 & \textbf{21.35} & 21.25 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\safeimg[0.95\linewidth]{yale_eval.png}
+\caption{Yale recognition curves (left) and salt-pepper recon bars (right).}
+\label{fig:yale}
+\end{figure}
+
+\paragraph{Qualitative components and galleries}
+Figure~\ref{fig:eigen} compares PCA / RSPCA / RSMPCA / RSSPCA loadings on the same polluted fit.
+Figures~\ref{fig:galp}--\ref{fig:galc} show reconstructions of polluted and clean faces.
+
+\begin{figure}[H]
+\centering
+\safeimg[0.98\linewidth]{eigenfaces_compare.png}
+\caption{Side-by-side polluted-fit components: PCA, RSPCA, RSMPCA, RSSPCA.}
 \label{fig:eigen}
 \end{figure}
 
@@ -277,8 +318,8 @@ Figures~\ref{fig:galp}--\ref{fig:galc} show reconstructions of polluted and clea
 \end{figure}
 
 \paragraph{Remaining differences vs.\ the paper}
-We still differ in contaminant details (paper uses its published noise model; we use block / salt-pepper) and we do not sweep the full $\lg\eta$ grid on every seed.
-The directional claims---smoothness helps impulsive-noise reconstruction; sparsity+smoothness help low-$r$ recognition---reproduce.
+We still use block / salt-pepper rather than the paper's exact published noise model, and we do not re-sweep the full $\lg\eta$ grid on every seed and database.
+Directional claims---smoothness helps impulsive-noise reconstruction on ORL and Yale; sparsity+smoothness help compact-$r$ ORL recognition---reproduce.
 
 \section{What I Have Learnt from This AI Assignment}
 \begin{itemize}
@@ -287,6 +328,8 @@ The directional claims---smoothness helps impulsive-noise reconstruction; sparsi
   \item Recent $\neq$ better on every cell of every table: at high $r$ on clean ORL recognition, methods saturate; RSSPCA's clearest win is compact $r{=}5$.
   \item Numerical details matter: without Gram--Schmidt, deflation became unstable---an implementation lesson, not a paper flaw.
   \item Multi-seed reporting (as in Assignment~2) stops over-reading a single lucky split; std on ORL recognition is about $0.01$.
+  \item A second dataset (Yale) can confirm a robustness claim even when recognition is saturated: RSMPCA/RSSPCA still beat PCA by $\sim$0.9\,dB under salt-and-pepper.
+  \item Dataset logistics are part of AI-agent work: official Yale/LFW CDNs returned 403; a GitHub mirror and an \texttt{ensure\_yale.py} script kept the experiment reproducible.
 \end{itemize}
 
 \section{Source Code Webpage Link}

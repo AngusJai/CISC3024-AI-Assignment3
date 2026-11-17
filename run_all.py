@@ -23,6 +23,7 @@ def main() -> None:
     p.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
     p.add_argument("--skip-recon", action="store_true")
     p.add_argument("--skip-recog", action="store_true")
+    p.add_argument("--skip-extras", action="store_true", help="skip ablation/Yale extras")
     args = p.parse_args()
 
     out = args.out
@@ -56,6 +57,22 @@ def main() -> None:
             eta2=args.eta2,
             rsmpca_eta2=args.rsmpca_eta2,
         )
+    if not args.skip_extras:
+        from experiments.ablation import (
+            run_eigenface_compare,
+            run_eta_ablation,
+            run_rel_error_curves,
+        )
+        from experiments.yale_eval import run_yale
+
+        run_rel_error_curves(out)
+        run_eigenface_compare(out)
+        summary["eta_ablation"] = run_eta_ablation(out)
+        try:
+            summary["yale"] = run_yale(out, seeds=args.seeds)
+        except Exception as e:
+            summary["yale_error"] = str(e)
+            print(f"[warn] Yale extras skipped: {e}")
 
     summary["elapsed_sec"] = round(time.time() - t0, 2)
     with open(out / "summary.json", "w") as f:
