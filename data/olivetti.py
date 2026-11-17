@@ -1,7 +1,7 @@
-"""ORL / AT&T face database loader (Olivetti Research Lab faces).
+"""AT&T / ORL face database loader (Olivetti Research Lab).
 
-Primary source: Cambridge att_faces.zip cached under data/cache/.
-Falls back to sklearn fetch_olivetti_faces if available.
+Primary source: Cambridge att_faces.zip under data/cache/.
+Paper (Wang et al. 2025) resizes ORL to 56x46; we follow that by default.
 """
 
 from __future__ import annotations
@@ -15,7 +15,6 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 CACHE = ROOT / "data" / "cache"
 ORL_DIR = CACHE / "orl"
-ATT_ZIP = CACHE / "att_faces.zip"
 
 
 @dataclass
@@ -26,24 +25,22 @@ class FaceDataset:
     height: int
     width: int
     name: str = "orl"
-    mean: np.ndarray | None = None
 
 
 def _find_orl_root() -> Path | None:
     if (ORL_DIR / "s1" / "1.pgm").exists():
         return ORL_DIR
-    # zip may extract with nested folder
     for p in CACHE.rglob("s1"):
         if (p / "1.pgm").exists():
             return p.parent
     return None
 
 
-def _load_orl_from_disk(resize: tuple[int, int] | None = (64, 64)) -> FaceDataset:
+def _load_orl_from_disk(resize: tuple[int, int] | None = (56, 46)) -> FaceDataset:
     root = _find_orl_root()
     if root is None:
         raise FileNotFoundError(
-            f"ORL faces not found under {CACHE}. Run: unzip att_faces.zip into data/cache/orl"
+            f"ORL faces not found under {CACHE}. Run: python scripts/ensure_orl.py"
         )
     images = []
     labels = []
@@ -52,7 +49,8 @@ def _load_orl_from_disk(resize: tuple[int, int] | None = (64, 64)) -> FaceDatase
             path = root / f"s{subj}" / f"{img_i}.pgm"
             im = Image.open(path).convert("L")
             if resize is not None:
-                im = im.resize((resize[1], resize[0]), Image.BILINEAR)  # (W,H)
+                # PIL resize is (W, H); our resize arg is (H, W)
+                im = im.resize((resize[1], resize[0]), Image.BILINEAR)
             arr = np.asarray(im, dtype=np.float64) / 255.0
             images.append(arr)
             labels.append(subj - 1)
@@ -69,34 +67,13 @@ def _load_orl_from_disk(resize: tuple[int, int] | None = (64, 64)) -> FaceDatase
     )
 
 
-def load_olivetti(
+def load_orl(
     shuffle: bool = False,
     random_state: int = 0,
-    resize: tuple[int, int] | None = (64, 64),
+    resize: tuple[int, int] | None = (56, 46),
 ) -> FaceDataset:
-    """Load ORL/Olivetti-style faces (400 images, 40 subjects).
-
-    Prefer local AT&T ORL cache; optionally fall back to sklearn.
-    `resize` defaults to 64x64 for tractable RSSPCA (original ORL is 112x92).
-    """
-    try:
-        ds = _load_orl_from_disk(resize=resize)
-    except FileNotFoundError:
-        from sklearn.datasets import fetch_olivetti_faces
-
-        bunch = fetch_olivetti_faces(shuffle=False, random_state=random_state)
-        images = bunch.images.astype(np.float64)
-        n, h, w = images.shape
-        x = images.reshape(n, h * w).T
-        ds = FaceDataset(
-            images=images,
-            X=x,
-            y=bunch.target.astype(int),
-            height=h,
-            width=w,
-            name="olivetti_sklearn",
-        )
-
+    """Load AT&T ORL faces (400 images, 40 subjects). Default size matches the paper."""
+    ds = _load_orl_from_disk(resize=resize)
     if shuffle:
         rng = np.random.RandomState(random_state)
         perm = rng.permutation(len(ds.y))
@@ -109,6 +86,11 @@ def load_olivetti(
             name=ds.name,
         )
     return ds
+
+
+# Back-compat alias used by older scripts
+def load_olivetti(*args, **kwargs) -> FaceDataset:
+    return load_orl(*args, **kwargs)
 
 
 def train_test_split_per_class(
@@ -128,10 +110,29 @@ def train_test_split_per_class(
     return np.array(train_idx), np.array(test_idx)
 
 
+def zscore_columns(
+    x: np.ndarray,
+    mean: np.ndarray | None = None,
+    std: np.ndarray | None = None,
+    eps: float = 1e-8,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Per-feature z-score (paper protocol). X is d x n."""
+    if mean is None:
+        mean = x.mean(axis=1, keepdims=True)
+    if std is None:
+        std = x.std(axis=1, keepdims=True)
+    std_safe = np.maximum(std, eps)
+    return (x - mean) / std_safe, mean, std_safe
+
+
+def unzscore(x_z: np.ndarray, mean: np.ndarray, std: np.ndarray) -> np.ndarray:
+    return x_z * std + mean
+
+
 def center_columns(
     x: np.ndarray, mean: np.ndarray | None = None
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Center feature rows using mean face (d x 1)."""
+    """Mean-center only (legacy helper)."""
     if mean is None:
         mean = x.mean(axis=1, keepdims=True)
     return x - mean, mean

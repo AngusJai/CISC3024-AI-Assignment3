@@ -2,7 +2,7 @@
 
 from .baselines import fit_pca, fit_pca_l1, fit_rspca
 from .laplacian import spatial_laplacian
-from .rsspca import fit_rsspca
+from .rsspca import fit_rsspca, fit_rsmpca
 
 __all__ = [
     "spatial_laplacian",
@@ -10,4 +10,5 @@ __all__ = [
     "fit_pca_l1",
     "fit_rspca",
     "fit_rsspca",
+    "fit_rsmpca",
 ]

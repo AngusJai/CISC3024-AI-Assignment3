@@ -1,252 +1,173 @@
 {
-  "dataset": "olivetti",
-  "n_train": 280,
-  "n_test": 120,
-  "height": 64,
-  "width": 64,
+  "dataset": "orl",
+  "protocol": "polluted_train_320clean_80block",
+  "n_images": 400,
+  "n_pollute": 80,
+  "height": 56,
+  "width": 46,
   "params": {
     "eta1": 0.001,
-    "eta2": 0.1,
-    "rspca_lam": 0.05
+    "eta2": 1.0,
+    "rsmpca_eta2": 0.6309573444801932,
+    "note": "Wang et al. 2025 Table 1 reconstruction-optimal logs"
   },
-  "clean": {
+  "polluted_fit": {
     "pca": [
       {
         "r": 5,
-        "rel_error": 0.21644693781229093,
-        "psnr": 19.61468809602071
+        "rel_error": 0.21889213584154982,
+        "psnr": 19.558592394811797
       },
       {
         "r": 10,
-        "rel_error": 0.1869438131962496,
-        "psnr": 20.88749507629184
+        "rel_error": 0.19903739196106882,
+        "psnr": 20.38450212551846
       },
       {
         "r": 20,
-        "rel_error": 0.16375689669532972,
-        "psnr": 22.03772502493589
+        "rel_error": 0.19113100302227268,
+        "psnr": 20.736572794805788
       },
       {
         "r": 30,
-        "rel_error": 0.15092330755001998,
-        "psnr": 22.746590728343325
+        "rel_error": 0.18297620639638745,
+        "psnr": 21.115303188508268
       },
       {
         "r": 40,
-        "rel_error": 0.14138404958663048,
-        "psnr": 23.313708680769626
+        "rel_error": 0.17547124665656444,
+        "psnr": 21.479076341172178
       }
     ],
     "pca_l1": [
       {
         "r": 5,
-        "rel_error": 0.2180559256414636,
-        "psnr": 19.550359154743834
+        "rel_error": 0.2195283952813208,
+        "psnr": 19.533381517297823
       },
       {
         "r": 10,
-        "rel_error": 0.18931506111408694,
-        "psnr": 20.778013696264384
+        "rel_error": 0.19889506903161241,
+        "psnr": 20.390715246749387
       },
       {
         "r": 20,
-        "rel_error": 0.16611918608190612,
-        "psnr": 21.913321124614452
+        "rel_error": 0.1875870334091323,
+        "psnr": 20.89913926670921
       },
       {
         "r": 30,
-        "rel_error": 0.15328445140069819,
-        "psnr": 22.611754938329565
+        "rel_error": 0.18055389626961363,
+        "psnr": 21.231058278235757
       },
       {
         "r": 40,
-        "rel_error": 0.1438406498973252,
-        "psnr": 23.164084283815964
+        "rel_error": 0.1743679902698559,
+        "psnr": 21.53386033321088
       }
     ],
     "rspca": [
       {
         "r": 5,
-        "rel_error": 0.2180607411959344,
-        "psnr": 19.550167337379985
+        "rel_error": 0.21953356377968708,
+        "psnr": 19.533177022212428
       },
       {
         "r": 10,
-        "rel_error": 0.1893007562520683,
-        "psnr": 20.778670036792917
+        "rel_error": 0.1987039686753478,
+        "psnr": 20.399064747501193
       },
       {
         "r": 20,
-        "rel_error": 0.16626458556406232,
-        "psnr": 21.90572193329568
+        "rel_error": 0.18717333617111645,
+        "psnr": 20.918315947619213
       },
       {
         "r": 30,
-        "rel_error": 0.1534404527012819,
-        "psnr": 22.60291959317839
+        "rel_error": 0.18040053971080508,
+        "psnr": 21.23843892295129
       },
       {
         "r": 40,
-        "rel_error": 0.14402892518673754,
-        "psnr": 23.152722620339663
+        "rel_error": 0.17415437613784104,
+        "psnr": 21.544507736000405
+      }
+    ],
+    "rsmpca": [
+      {
+        "r": 5,
+        "rel_error": 0.2200403394088981,
+        "psnr": 19.513149449579714
+      },
+      {
+        "r": 10,
+        "rel_error": 0.2000028711181429,
+        "psnr": 20.34247096953685
+      },
+      {
+        "r": 20,
+        "rel_error": 0.18959169291591874,
+        "psnr": 20.806809482557725
+      },
+      {
+        "r": 30,
+        "rel_error": 0.18283404684303586,
+        "psnr": 21.122054132434158
+      },
+      {
+        "r": 40,
+        "rel_error": 0.17618186183255552,
+        "psnr": 21.44397166985538
       }
     ],
     "rsspca": [
       {
         "r": 5,
-        "rel_error": 0.2180249825203726,
-        "psnr": 19.551591809190633
+        "rel_error": 0.22057507706442506,
+        "psnr": 19.492066780349823
       },
       {
         "r": 10,
-        "rel_error": 0.18928420993513528,
-        "psnr": 20.77942928238228
+        "rel_error": 0.20019821874112767,
+        "psnr": 20.333991392284027
       },
       {
         "r": 20,
-        "rel_error": 0.16564335166874375,
-        "psnr": 21.938236825228437
+        "rel_error": 0.18984288041730166,
+        "psnr": 20.795309279953464
       },
       {
         "r": 30,
-        "rel_error": 0.15261495341418185,
-        "psnr": 22.649775247080214
+        "rel_error": 0.18399340317230256,
+        "psnr": 21.067150527723268
       },
       {
         "r": 40,
-        "rel_error": 0.1431074868484062,
-        "psnr": 23.208469915724855
+        "rel_error": 0.17688883843604902,
+        "psnr": 21.409186971170424
       }
     ]
   },
-  "occluded": {
-    "pca": [
-      {
-        "r": 5,
-        "rel_error": 0.24572720345319388,
-        "psnr": 18.512652253931442,
-        "note": "recon from occluded input vs clean GT"
-      },
-      {
-        "r": 10,
-        "rel_error": 0.23429588207021015,
-        "psnr": 18.926423903953037,
-        "note": "recon from occluded input vs clean GT"
-      },
-      {
-        "r": 20,
-        "rel_error": 0.2323366222672074,
-        "psnr": 18.999363591044975,
-        "note": "recon from occluded input vs clean GT"
-      },
-      {
-        "r": 30,
-        "rel_error": 0.2340317779469308,
-        "psnr": 18.936220376409324,
-        "note": "recon from occluded input vs clean GT"
-      },
-      {
-        "r": 40,
-        "rel_error": 0.23567983324290565,
-        "psnr": 18.87526857185826,
-        "note": "recon from occluded input vs clean GT"
-      }
-    ],
-    "pca_l1": [
-      {
-        "r": 5,
-        "rel_error": 0.2464183885516527,
-        "psnr": 18.48825475234076,
-        "note": "recon from occluded input vs clean GT"
-      },
-      {
-        "r": 10,
-        "rel_error": 0.23529270909744654,
-        "psnr": 18.889547613877365,
-        "note": "recon from occluded input vs clean GT"
-      },
-      {
-        "r": 20,
-        "rel_error": 0.2340331542347553,
-        "psnr": 18.93616929681189,
-        "note": "recon from occluded input vs clean GT"
-      },
-      {
-        "r": 30,
-        "rel_error": 0.2347105395637139,
-        "psnr": 18.91106517964364,
-        "note": "recon from occluded input vs clean GT"
-      },
-      {
-        "r": 40,
-        "rel_error": 0.23727258751886576,
-        "psnr": 18.816765688460578,
-        "note": "recon from occluded input vs clean GT"
-      }
-    ],
-    "rspca": [
-      {
-        "r": 5,
-        "rel_error": 0.24641041658698304,
-        "psnr": 18.48853575704099,
-        "note": "recon from occluded input vs clean GT"
-      },
-      {
-        "r": 10,
-        "rel_error": 0.23527125444124297,
-        "psnr": 18.89033965402738,
-        "note": "recon from occluded input vs clean GT"
-      },
-      {
-        "r": 20,
-        "rel_error": 0.23393458179780913,
-        "psnr": 18.939828477799843,
-        "note": "recon from occluded input vs clean GT"
-      },
-      {
-        "r": 30,
-        "rel_error": 0.23457987867998004,
-        "psnr": 18.915901869255578,
-        "note": "recon from occluded input vs clean GT"
-      },
-      {
-        "r": 40,
-        "rel_error": 0.2373653392944615,
-        "psnr": 18.81337096734243,
-        "note": "recon from occluded input vs clean GT"
-      }
-    ],
-    "rsspca": [
-      {
-        "r": 5,
-        "rel_error": 0.24644844471124566,
-        "psnr": 18.487195381054757,
-        "note": "recon from occluded input vs clean GT"
-      },
-      {
-        "r": 10,
-        "rel_error": 0.23587349915161065,
-        "psnr": 18.86813402020234,
-        "note": "recon from occluded input vs clean GT"
-      },
-      {
-        "r": 20,
-        "rel_error": 0.2328391249300274,
-        "psnr": 18.980597847576455,
-        "note": "recon from occluded input vs clean GT"
-      },
-      {
-        "r": 30,
-        "rel_error": 0.23465505130210454,
-        "psnr": 18.9131188662716,
-        "note": "recon from occluded input vs clean GT"
-      },
-      {
-        "r": 40,
-        "rel_error": 0.2376924402576732,
-        "psnr": 18.801409629424167,
-        "note": "recon from occluded input vs clean GT"
-      }
-    ]
+  "saltpepper_fit_r30": {
+    "pca": {
+      "psnr": 22.95609988091314,
+      "rel_error": 0.14803171976518964
+    },
+    "pca_l1": {
+      "psnr": 23.099868888678788,
+      "rel_error": 0.14560166262603727
+    },
+    "rspca": {
+      "psnr": 23.0985219544054,
+      "rel_error": 0.1456242430506808
+    },
+    "rsmpca": {
+      "psnr": 23.650783996524556,
+      "rel_error": 0.13665344317470685
+    },
+    "rsspca": {
+      "psnr": 23.64156883264807,
+      "rel_error": 0.13679850052301296
+    }
   }
 }

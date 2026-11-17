@@ -7,11 +7,16 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from rsspca import fit_pca, fit_pca_l1, fit_rspca, fit_rsspca
+from rsspca import fit_pca, fit_pca_l1, fit_rspca, fit_rsspca, fit_rsmpca
 from rsspca.laplacian import spatial_laplacian
 
+# Paper family: PCA, PCA-L1, RSPCA (η2=0), RSMPCA (η1=0), RSSPCA
+METHODS = ("pca", "pca_l1", "rspca", "rsmpca", "rsspca")
 
-METHODS = ("pca", "pca_l1", "rspca", "rsspca")
+# Wang et al. 2025 Table 1 (reconstruction-optimal logs)
+DEFAULT_ETA1 = 0.001  # lg η1 = -3
+DEFAULT_ETA2 = 1.0  # lg η2 = 0
+DEFAULT_RSMPCA_ETA2 = 10 ** (-0.2)  # lg η2 = -0.2
 
 
 def fit_method(
@@ -21,16 +26,38 @@ def fit_method(
     height: int,
     width: int,
     rspca_lam: float = 0.05,
-    eta1: float = 0.001,
-    eta2: float = 0.1,
+    eta1: float = DEFAULT_ETA1,
+    eta2: float = DEFAULT_ETA2,
+    rsmpca_eta2: float = DEFAULT_RSMPCA_ETA2,
     laplacian=None,
+    use_mm_rspca: bool = True,
 ) -> np.ndarray:
     if name == "pca":
         return fit_pca(x, n_components)
     if name == "pca_l1":
         return fit_pca_l1(x, n_components)
     if name == "rspca":
+        # Paper: RSPCA is RSSPCA with η2=0 (MM form). Soft-threshold kept as option.
+        if use_mm_rspca:
+            return fit_rsspca(
+                x,
+                n_components,
+                height=height,
+                width=width,
+                eta1=eta1,
+                eta2=0.0,
+                laplacian=laplacian,
+            )
         return fit_rspca(x, n_components, lam=rspca_lam)
+    if name == "rsmpca":
+        return fit_rsmpca(
+            x,
+            n_components,
+            height=height,
+            width=width,
+            eta2=rsmpca_eta2,
+            laplacian=laplacian,
+        )
     if name == "rsspca":
         return fit_rsspca(
             x,
@@ -45,13 +72,15 @@ def fit_method(
 
 
 def project(w: np.ndarray, x: np.ndarray) -> np.ndarray:
-    """Y = W^T X  → (r, n)"""
     return w.T @ x
 
 
-def reconstruct(w: np.ndarray, x: np.ndarray, mean: np.ndarray) -> np.ndarray:
-    """X_hat = W W^T X + mean  (mean shape d x 1)"""
-    return w @ (w.T @ x) + mean
+def reconstruct_z(
+    w: np.ndarray, x_z: np.ndarray, mean: np.ndarray, std: np.ndarray
+) -> np.ndarray:
+    """Reconstruct in pixel space from z-scored columns: unzscore(W W^T X_z)."""
+    x_hat_z = w @ (w.T @ x_z)
+    return x_hat_z * std + mean
 
 
 def relative_error(x_true: np.ndarray, x_hat: np.ndarray) -> float:
@@ -71,15 +100,36 @@ def add_block_occlusion(
     images: np.ndarray,
     block: int = 16,
     random_state: int = 0,
+    indices: np.ndarray | None = None,
 ) -> np.ndarray:
-    """Zero out a random block_size x block_size region per image. images: (n,h,w)."""
+    """Zero out a random block per selected image. images: (n,h,w)."""
     rng = np.random.RandomState(random_state)
     out = images.copy()
     n, h, w = out.shape
-    for i in range(n):
+    if indices is None:
+        indices = np.arange(n)
+    for i in indices:
         r0 = rng.randint(0, max(1, h - block + 1))
         c0 = rng.randint(0, max(1, w - block + 1))
         out[i, r0 : r0 + block, c0 : c0 + block] = 0.0
+    return out
+
+
+def add_salt_pepper(
+    images: np.ndarray,
+    amount: float = 0.1,
+    random_state: int = 0,
+    indices: np.ndarray | None = None,
+) -> np.ndarray:
+    rng = np.random.RandomState(random_state)
+    out = images.copy()
+    n = out.shape[0]
+    if indices is None:
+        indices = np.arange(n)
+    for i in indices:
+        mask = rng.rand(*out[i].shape)
+        out[i][mask < amount / 2] = 0.0
+        out[i][mask > 1.0 - amount / 2] = 1.0
     return out
 
 
@@ -90,12 +140,8 @@ def nearest_neighbor_accuracy(
     x_test: np.ndarray,
     y_test: np.ndarray,
 ) -> float:
-    """1-NN in projected space (cosine / Euclidean)."""
-    z_tr = project(w, x_train).T  # (n_tr, r)
+    z_tr = project(w, x_train).T
     z_te = project(w, x_test).T
-    # Euclidean NN
-    # (n_te, n_tr) squared distances
-    # ||a-b||^2 = ||a||^2 + ||b||^2 - 2 a·b
     a2 = np.sum(z_te**2, axis=1, keepdims=True)
     b2 = np.sum(z_tr**2, axis=1, keepdims=True).T
     d2 = a2 + b2 - 2.0 * (z_te @ z_tr.T)
@@ -137,23 +183,25 @@ def save_recon_gallery(
     recons: dict[str, np.ndarray],
     path: Path,
     n_show: int = 6,
+    title: str = "Reconstruction gallery",
 ) -> None:
-    """originals/recons images as (n,h,w)."""
     methods = list(recons.keys())
     n_show = min(n_show, originals.shape[0])
     nrows = 1 + len(methods)
-    fig, axes = plt.subplots(nrows, n_show, figsize=(n_show * 1.6, nrows * 1.6))
+    fig, axes = plt.subplots(nrows, n_show, figsize=(n_show * 1.5, nrows * 1.45))
     for j in range(n_show):
         axes[0, j].imshow(originals[j], cmap="gray", vmin=0, vmax=1)
         axes[0, j].axis("off")
         if j == 0:
-            axes[0, j].set_ylabel("orig", fontsize=9)
+            axes[0, j].set_ylabel("input", fontsize=8)
         for mi, m in enumerate(methods):
-            axes[mi + 1, j].imshow(recons[m][j], cmap="gray", vmin=0, vmax=1)
+            axes[mi + 1, j].imshow(
+                np.clip(recons[m][j], 0, 1), cmap="gray", vmin=0, vmax=1
+            )
             axes[mi + 1, j].axis("off")
             if j == 0:
-                axes[mi + 1, j].set_ylabel(m, fontsize=8)
-    fig.suptitle("Reconstruction gallery")
+                axes[mi + 1, j].set_ylabel(m, fontsize=7)
+    fig.suptitle(title)
     fig.tight_layout()
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=150, bbox_inches="tight")

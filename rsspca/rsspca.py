@@ -26,7 +26,7 @@ def fit_rsspca(
     height: int,
     width: int,
     eta1: float = 0.001,
-    eta2: float = 0.1,
+    eta2: float = 1.0,
     max_iter: int = 100,
     tol: float = 1e-4,
     laplacian: sparse.spmatrix | None = None,
@@ -90,3 +90,27 @@ def fit_rsspca(
         x_work = _deflate(x, w_mat)
 
     return np.column_stack(w_list)
+
+
+def fit_rsmpca(
+    x: np.ndarray,
+    n_components: int,
+    height: int,
+    width: int,
+    eta2: float = 10 ** (-0.2),
+    max_iter: int = 100,
+    tol: float = 1e-4,
+    laplacian=None,
+) -> np.ndarray:
+    """Robust Smooth PCA = RSSPCA with η1=0 (paper Sec. 4.1 / Table 1)."""
+    return fit_rsspca(
+        x,
+        n_components,
+        height=height,
+        width=width,
+        eta1=0.0,
+        eta2=eta2,
+        max_iter=max_iter,
+        tol=tol,
+        laplacian=laplacian,
+    )

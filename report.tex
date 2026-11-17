@@ -55,9 +55,10 @@ Face Reconstruction and Recognition}
 \thispagestyle{fancy}
 
 \begin{abstract}
-\textbf{Thesis:} a 2025 PCA variant---Robust Sparse Smooth PCA (RSSPCA; Wang et al., PLOS One)---adds a graph-Laplacian smoothness constraint on top of L1 robustness and sparsity, and is a natural fit for classical face pattern recognition.
-Under Cursor AI direction (no hand-written student code), we reimplemented RSSPCA in Python, compared it with PCA, PCA-L1, and RSPCA on the AT\&T ORL face database, and verified competitive clean reconstruction plus strong mid-dimensional recognition.
-This report covers the required six sections: how AI found the algorithm, algorithm description, implementation, experiments, lessons learnt, and the source-code link.
+\textbf{Thesis:} a 2025 PCA variant---Robust Sparse Smooth PCA (RSSPCA; Wang et al., PLOS One)---adds a graph-Laplacian smoothness constraint on top of L1 robustness and sparsity for face reconstruction and recognition.
+Under Cursor AI direction (no hand-written student code), we reimplemented RSSPCA in Python with the paper's PCA / PCA-L1 / RSPCA / RSMPCA family, used AT\&T ORL with paper-aligned preprocessing (56$\times$46, z-score), fitted subspaces on \emph{polluted} training images, and averaged recognition over three random 7/3 splits.
+Salt-and-pepper polluted-fit reconstruction favours RSMPCA/RSSPCA over PCA by $\sim$0.7\,dB; recognition at compact dimension ($r{=}5$) favours RSSPCA ($0.900{\pm}0.012$).
+This report covers the required six sections.
 \end{abstract}
 
 \section{How I Asked AI Tools to Find the Algorithm}
@@ -74,8 +75,8 @@ Ask clarifying questions, then lock one algorithm and a new independent reposito
 \end{quote}
 The agent shortlisted four candidates (Table~\ref{tab:choice}).
 I approved \textbf{RSSPCA} (Wang et al., PLOS One, May 2025)~\cite{wang2025rsspca}: it is clearly PCA-family, recent, has a public MATLAB reference, and targets face reconstruction and recognition.
+After a first draft, a fact-check against the paper exposed protocol gaps (mean-only centering, clean-train/dirty-test, single seed, missing RSMPCA); I told the agent to align with the paper and re-run.
 Delivery matched Assignment~2: English LaTeX PDF, \texttt{process\_log.md}, and a public GitHub link.
-Diary: \texttt{process\_log.md}.
 
 \begin{table}[H]
 \centering
@@ -98,7 +99,7 @@ Used here & no & no & no & yes \\
 \section{Algorithm Description}
 \label{sec:algo}
 \paragraph{From PCA to RSPCA}
-Let training faces be mean-centered columns $X\in\mathbb{R}^{d\times n}$.
+Let training faces be columns $X\in\mathbb{R}^{d\times n}$ after per-feature z-score.
 Classical PCA maximises $\|X^\top w\|_2^2$ under $\|w\|_2=1$.
 PCA-L1 replaces the objective by $\|X^\top w\|_1$ for robustness to outliers~\cite{kwak2008pca}.
 RSPCA further adds an L1 constraint on $w$ so loadings are sparse~\cite{meng2012rspca}.
@@ -113,16 +114,11 @@ RSSPCA keeps the L1 objective and adds a smoothness constraint via a pixel-grid 
 w^\top L w \le c_2.
 \label{eq:rsspca}
 \end{equation}
-Here $L=D-A$ uses 4-neighbour adjacency on the $h\times w$ image lattice.
-Then
-\begin{equation}
-w^\top L w = \tfrac12\sum_{i,j} A_{ij}(w_i-w_j)^2
-\end{equation}
-penalises dissimilar weights on adjacent pixels, encouraging spatially coherent ``eigenfaces''.
+Here $L=D-A$ uses 4-neighbour adjacency on the $h\times w$ image lattice, so
+$w^\top L w = \tfrac12\sum_{i,j} A_{ij}(w_i-w_j)^2$ encourages spatially coherent eigenfaces.
 
-\paragraph{MM iterative solver}
-Because of the L1 terms, the paper uses a Minorization--Maximization (MM) surrogate.
-With sparsity / smoothness weights $\eta_1,\eta_2\ge 0$, each iteration (Algorithm~1 in the paper) does:
+\paragraph{MM iterative solver and special cases}
+With sparsity / smoothness weights $\eta_1,\eta_2\ge 0$, each MM iteration updates
 \begin{align}
 U^{(k)}&=\mathrm{diag}(|w^{(k)}|),
 \qquad
@@ -130,16 +126,15 @@ v^{(k)}=X\,\mathrm{sign}(X^\top w^{(k)}), \\
 u^{(k)}&=(U^{(k)}+\eta_1 I+\eta_2 U^{(k)}L)^{-1} U^{(k)} v^{(k)}, \\
 w^{(k+1)}&=u^{(k)}/\|u^{(k)}\|_2.
 \end{align}
-Multiple components use deflation $X\leftarrow (I-WW^\top)X$.
-Our Python port adds Gram--Schmidt re-orthogonalisation so $W$ stays numerically orthonormal.
-Intuition: $\eta_1$ trades sparsity vs.\ L2; $\eta_2$ trades smoothness vs.\ L2.
-Setting $\eta_2=0$ recovers an RSPCA-like sparse robust PCA; $\eta_1=\eta_2=0$ recovers PCA-L1 behaviour.
+Multiple components use deflation $X\leftarrow (I-WW^\top)X$ with Gram--Schmidt re-orthogonalisation.
+Special cases used as baselines~\cite{wang2025rsspca}: $\eta_1=\eta_2=0$ recovers PCA-L1 behaviour; $\eta_2=0$ recovers \textbf{RSPCA}; $\eta_1=0$ recovers \textbf{RSMPCA} (robust smooth PCA).
+We set reconstruction-optimal logs from the paper's Table~1: $\lg\eta_1=-3$ ($\eta_1=0.001$), $\lg\eta_2=0$ ($\eta_2=1$) for RSSPCA, and $\lg\eta_2=-0.2$ for RSMPCA.
 
 \section{How AI Implemented the Algorithm}
 The agent created a new project (not mixed into Assignment~1 FasterNet or Assignment~2 VBLL code):
 \begin{verbatim}
 CISC3024AI3/
-  rsspca/           # Laplacian, PCA, PCA-L1, RSPCA, RSSPCA
+  rsspca/           # Laplacian, PCA, PCA-L1, RSPCA, RSMPCA, RSSPCA
   data/             # ORL loader (+ ensure_orl.py)
   experiments/      # reconstruction + recognition
   run_all.py
@@ -147,65 +142,97 @@ CISC3024AI3/
   process_log.md
   report.tex
 \end{verbatim}
-Implementation choices:
+Implementation choices (after fact-check alignment):
 \begin{itemize}
-  \item \textbf{Language:} Python~3 + NumPy / SciPy sparse \texttt{spsolve} (readable vs.\ the MATLAB reference).
-  \item \textbf{Baselines:} PCA (SVD), PCA-L1, RSPCA (soft-thresholding), RSSPCA (MM + Laplacian).
-  \item \textbf{Data:} Cambridge AT\&T ORL (400 images, 40 subjects).
+  \item \textbf{Language:} Python~3 + NumPy / SciPy sparse \texttt{spsolve}.
+  \item \textbf{Baselines:} PCA (SVD), PCA-L1, RSPCA ($\eta_2{=}0$ MM), RSMPCA ($\eta_1{=}0$), RSSPCA.
+  \item \textbf{Data:} Cambridge AT\&T ORL~\cite{samaria1994orl} (400 images, 40 subjects), resized to \textbf{56$\times$46} as in the paper.
         sklearn Olivetti CDN returned HTTP 403; ORL is the same historical lab lineage.
-        Images resized to $64\times 64$ ($d=4096$) for tractable solves.
-  \item \textbf{Split:} 7 train / 3 test images per subject (seed 0).
-  \item \textbf{Hyperparameters:} $\eta_1=0.001$, $\eta_2=0.1$, RSPCA $\lambda=0.05$, up to 40 components.
-  \item \textbf{Tasks:} clean / block-occlusion / salt-and-pepper reconstruction (PSNR); 1-NN recognition in the projected subspace.
+  \item \textbf{Preprocess:} per-feature \textbf{z-score} fit on the training matrix (paper protocol).
+  \item \textbf{Reconstruction:} fit on a \textbf{polluted} set (320 clean + 80 block-occluded), score vs.\ clean ground truth; repeat with salt-and-pepper pollution.
+  \item \textbf{Recognition:} 7 train / 3 test per subject, 1-NN, average over \textbf{seeds 0--2}.
 \end{itemize}
-I did not write code myself; I approved the plan, checked figures/metrics, and submit the PDF on Moodle.
+I did not write code myself; I approved the plan, checked figures/metrics, and will submit the PDF on Moodle.
 
 \section{Experiment Settings and Results}
 \paragraph{Hardware / runtime}
-CPU laptop; full \texttt{run\_all.py} $\approx$ 22--26\,s after data is cached.
+CPU laptop; full \texttt{run\_all.py} with five methods and three recognition seeds finishes in about one minute after ORL is cached.
 
-\paragraph{Clean reconstruction}
-Table~\ref{tab:psnr} reports PSNR (dB) of reconstructed test faces vs.\ \#components.
-RSSPCA tracks classical PCA closely on clean faces (within $\sim$0.1\,dB at $r=40$), confirming the MM solver and deflation are stable after re-orthogonalisation.
+\paragraph{Polluted-fit reconstruction (block occlusion)}
+Following the paper's idea of learning from contaminated faces, we replace 80/400 images with random $14\times 14$ block occlusion, z-score the polluted matrix, fit each method, reconstruct, and score against the \emph{clean} originals (Table~\ref{tab:psnr}, Figure~\ref{fig:psnr}).
+On this block contaminant the methods stay close; RSPCA / PCA-L1 are slightly ahead of PCA at $r{=}40$, while RSSPCA/RSMPCA are within $\sim$0.1\,dB---block zeros are a structured corruption that L1 helps only mildly here.
 
 \begin{table}[H]
 \centering
-\caption{Clean reconstruction PSNR (dB) on ORL test faces.}
+\caption{Polluted-fit reconstruction PSNR (dB) vs.\ clean GT (80/400 block-occluded).}
 \label{tab:psnr}
 \small
-\begin{tabular}{lcccc}
+\begin{tabular}{lccccc}
 \toprule
-\#comp & PCA & PCA-L1 & RSPCA & RSSPCA \\
+\#comp & PCA & PCA-L1 & RSPCA & RSMPCA & RSSPCA \\
 \midrule
-5  & 19.61 & 19.55 & 19.55 & 19.55 \\
-10 & 20.89 & 20.78 & 20.78 & 20.78 \\
-20 & 22.04 & 21.91 & 21.91 & 21.94 \\
-30 & 22.75 & 22.61 & 22.60 & 22.65 \\
-40 & 23.31 & 23.16 & 23.15 & 23.21 \\
+5  & 19.56 & 19.53 & 19.53 & 19.51 & 19.49 \\
+10 & 20.38 & 20.39 & 20.40 & 20.34 & 20.33 \\
+20 & 20.74 & 20.90 & 20.92 & 20.81 & 20.80 \\
+30 & 21.12 & 21.23 & 21.24 & 21.12 & 21.07 \\
+40 & 21.48 & 21.53 & 21.54 & 21.44 & 21.41 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\paragraph{Recognition (1-NN)}
-Table~\ref{tab:recog} and Figure~\ref{fig:recog} report nearest-neighbour accuracy in the projected subspace.
-At compact dimensions ($r=5,10$), RSSPCA is best or tied-best---useful when one wants few features.
-At very high $r$, plain PCA slightly leads on this clean ORL split (ceiling effect; all methods $>96\%$).
+\paragraph{Salt-and-pepper polluted-fit (clearer robustness gap)}
+Repeating the same protocol with 10\% salt-and-pepper on the 80 contaminated images (fit $r{=}30$) separates the methods (Table~\ref{tab:sp}, Figure~\ref{fig:sp}):
+RSMPCA and RSSPCA gain $\sim$0.7\,dB over PCA, matching the paper's claim that robustness + smoothness help reconstruction under impulsive noise.
 
 \begin{table}[H]
 \centering
-\caption{1-NN recognition accuracy on ORL (7 train / 3 test per subject).}
+\caption{Salt-and-pepper polluted-fit reconstruction at $r{=}30$.}
+\label{tab:sp}
+\small
+\begin{tabular}{lccccc}
+\toprule
+ & PCA & PCA-L1 & RSPCA & RSMPCA & RSSPCA \\
+\midrule
+PSNR (dB) & 22.96 & 23.10 & 23.10 & \textbf{23.65} & 23.64 \\
+Rel.\ error & 0.148 & 0.146 & 0.146 & \textbf{0.137} & 0.137 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\safeimg[0.88\linewidth]{reconstruction_psnr_curves.png}
+\caption{Block polluted-fit: PSNR and relative error vs.\ \#components.}
+\label{fig:psnr}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\safeimg[0.72\linewidth]{saltpepper_psnr_bars.png}
+\caption{Salt-and-pepper polluted-fit PSNR at $r{=}30$ (higher is better).}
+\label{fig:sp}
+\end{figure}
+
+\paragraph{Recognition (1-NN, three seeds)}
+Table~\ref{tab:recog} and Figure~\ref{fig:recog} report mean$\pm$std accuracy over seeds $\{0,1,2\}$.
+At compact dimension $r{=}5$, \textbf{RSSPCA is best} ($0.900{\pm}0.012$), then RSMPCA, then PCA---consistent with the paper's claim that sparsity + smoothness help classification.
+At high $r$ all methods saturate above $98\%$; RSPCA edges $r{=}40$ ($0.986{\pm}0.008$).
+
+\begin{table}[H]
+\centering
+\caption{1-NN recognition accuracy on ORL (7/3 split; mean$\pm$std over 3 seeds).}
 \label{tab:recog}
 \small
-\begin{tabular}{lcccc}
+\begin{tabular}{lccccc}
 \toprule
-\#comp & PCA & PCA-L1 & RSPCA & RSSPCA \\
+\#comp & PCA & PCA-L1 & RSPCA & RSMPCA & RSSPCA \\
 \midrule
-5  & 0.842 & 0.842 & 0.842 & \textbf{0.850} \\
-10 & 0.950 & 0.958 & 0.958 & \textbf{0.967} \\
-15 & 0.950 & 0.942 & 0.942 & 0.950 \\
-20 & 0.950 & 0.950 & 0.950 & 0.950 \\
-30 & 0.958 & 0.958 & 0.958 & 0.958 \\
-40 & \textbf{0.975} & 0.967 & 0.967 & 0.967 \\
+5  & $0.886{\pm}0.010$ & $0.872{\pm}0.010$ & $0.869{\pm}0.010$ & $0.889{\pm}0.014$ & $\mathbf{0.900{\pm}0.012}$ \\
+10 & $0.961{\pm}0.010$ & $0.964{\pm}0.010$ & $0.964{\pm}0.010$ & $0.964{\pm}0.008$ & $\mathbf{0.967{\pm}0.007}$ \\
+15 & $0.964{\pm}0.010$ & $0.967{\pm}0.007$ & $0.967{\pm}0.007$ & $0.969{\pm}0.008$ & $0.967{\pm}0.012$ \\
+20 & $0.967{\pm}0.012$ & $0.969{\pm}0.014$ & $0.969{\pm}0.014$ & $0.972{\pm}0.004$ & $0.967{\pm}0.012$ \\
+30 & $0.981{\pm}0.010$ & $0.981{\pm}0.016$ & $0.981{\pm}0.010$ & $0.983{\pm}0.012$ & $0.983{\pm}0.012$ \\
+40 & $0.983{\pm}0.012$ & $0.983{\pm}0.012$ & $\mathbf{0.986{\pm}0.008}$ & $0.983{\pm}0.012$ & $0.983{\pm}0.012$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -213,32 +240,13 @@ At very high $r$, plain PCA slightly leads on this clean ORL split (ceiling effe
 \begin{figure}[H]
 \centering
 \safeimg[0.88\linewidth]{recognition_accuracy_curves.png}
-\caption{1-NN accuracy vs.\ number of components on ORL.}
+\caption{1-NN accuracy vs.\ \#components (mean$\pm$std, 3 seeds).}
 \label{fig:recog}
 \end{figure}
 
-\begin{figure}[H]
-\centering
-\safeimg[0.88\linewidth]{reconstruction_psnr_curves.png}
-\caption{Clean and occluded reconstruction PSNR vs.\ \#components.}
-\label{fig:psnr}
-\end{figure}
-
-\paragraph{Robustness probes}
-On $16\times 16$ block occlusion (project occluded test, score vs.\ clean GT, $r=40$): PCA 18.88\,dB, PCA-L1 18.82, RSPCA 18.81, RSSPCA 18.80---methods stay close; occlusion geometry is structured, so gains are modest.
-On 10\% salt-and-pepper ($r=30$): PCA 22.32, PCA-L1 22.20, RSPCA 22.20, RSSPCA 22.24\,dB (Figure~\ref{fig:sp}).
-
-\begin{figure}[H]
-\centering
-\safeimg[0.72\linewidth]{saltpepper_psnr_bars.png}
-\caption{Salt-and-pepper (10\%) reconstruction PSNR at $r=30$.}
-\label{fig:sp}
-\end{figure}
-
-\paragraph{Qualitative eigenfaces}
-Figure~\ref{fig:eigen} compares learned components.
-RSSPCA loadings are spatially smoother than raw sparse RSPCA while remaining more localised than dense PCA.
-Reconstruction galleries are in Figures~\ref{fig:galc}--\ref{fig:galo}.
+\paragraph{Qualitative components and galleries}
+Figure~\ref{fig:eigen} compares PCA vs.\ RSSPCA loadings learned on the polluted set.
+Figures~\ref{fig:galp}--\ref{fig:galc} show reconstructions of polluted and clean faces from the polluted-fit subspace.
 
 \begin{figure}[H]
 \centering
@@ -250,38 +258,42 @@ Reconstruction galleries are in Figures~\ref{fig:galc}--\ref{fig:galo}.
 \centering
 \safeimg[0.98\linewidth]{eigenfaces_rsspca.png}
 \end{minipage}
-\caption{Left: PCA components. Right: RSSPCA components (smooth + sparse structure).}
+\caption{Left: PCA. Right: RSSPCA (smooth + sparse structure) under polluted-fit.}
 \label{fig:eigen}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\safeimg[0.95\linewidth]{recon_gallery_clean.png}
-\caption{Clean reconstruction gallery ($r=30$).}
-\label{fig:galc}
+\safeimg[0.95\linewidth]{recon_gallery_polluted.png}
+\caption{Block-polluted inputs (top) and reconstructions ($r{=}30$).}
+\label{fig:galp}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\safeimg[0.95\linewidth]{recon_gallery_occluded.png}
-\caption{Block-occlusion input (top) and reconstructions ($r=30$).}
-\label{fig:galo}
+\safeimg[0.95\linewidth]{recon_gallery_clean.png}
+\caption{Clean faces reconstructed from the polluted-fit subspace ($r{=}30$).}
+\label{fig:galc}
 \end{figure}
+
+\paragraph{Remaining differences vs.\ the paper}
+We still differ in contaminant details (paper uses its published noise model; we use block / salt-pepper) and we do not sweep the full $\lg\eta$ grid on every seed.
+The directional claims---smoothness helps impulsive-noise reconstruction; sparsity+smoothness help low-$r$ recognition---reproduce.
 
 \section{What I Have Learnt from This AI Assignment}
 \begin{itemize}
-  \item Prompting beats typing: locking ``recent PCA/LDA + CV + AI does all code'' early steered the agent away from another CNN Assignment~1 clone.
-  \item Recent $\neq$ automatically better on every metric: on clean ORL, classical PCA remains a strong baseline at high dimension; RSSPCA's value shows up as a \emph{principled} robust/sparse/smooth model and better mid-$r$ accuracy.
-  \item Numerical details matter: without Gram--Schmidt, deflation $(I-WW^\top)X$ became unstable and RSSPCA PSNR collapsed after $\sim$20 components---an implementation lesson, not a paper flaw.
-  \item Data logistics are part of the experiment: figshare Olivetti 403 forced an ORL fallback; documenting that is honest science.
-  \item Process logs help Turnitin-facing reports: the six required sections map cleanly when search $\rightarrow$ math $\rightarrow$ code $\rightarrow$ results are recorded chronologically.
+  \item Prompting beats typing: locking ``recent PCA/LDA + CV + AI does all code'' steered the agent away from another CNN Assignment~1 clone.
+  \item Fact-checking the paper matters: a first clean-train protocol hid the robustness story; polluted-fit + salt-pepper made RSMPCA/RSSPCA pull ahead by $\sim$0.7\,dB.
+  \item Recent $\neq$ better on every cell of every table: at high $r$ on clean ORL recognition, methods saturate; RSSPCA's clearest win is compact $r{=}5$.
+  \item Numerical details matter: without Gram--Schmidt, deflation became unstable---an implementation lesson, not a paper flaw.
+  \item Multi-seed reporting (as in Assignment~2) stops over-reading a single lucky split; std on ORL recognition is about $0.01$.
 \end{itemize}
 
 \section{Source Code Webpage Link}
 Source code:\\[0.3em]
 \url{https://github.com/AngusJai/CISC3024-AI-Assignment3}\\[0.3em]
 The repository contains the solvers, experiment scripts, \texttt{process\_log.md}, \texttt{report.tex}, and the metrics and figures under \texttt{outputs/}.
-Dataset downloads and virtual environments are gitignored; \texttt{att\_faces.zip} is included for reproducibility.
+\texttt{att\_faces.zip} is included for reproducibility.
 Reproduce with:
 \begin{verbatim}
 python -m venv .venv && source .venv/bin/activate
@@ -291,10 +303,9 @@ python run_all.py
 \end{verbatim}
 
 \section{Conclusion}
-RSSPCA is a recent PCA algorithm that an agent can reimplement from a published MM update and test on face images in one afternoon.
-With $(\eta_1,\eta_2)=(0.001,0.1)$ it matches PCA on clean reconstruction and leads at compact recognition dimensions ($r=5,10$).
-At high $r$ on clean ORL, classical PCA remains slightly ahead---a ceiling effect, not a reason to discard the method.
-The assignment value is the end-to-end AI workflow: literature search, correct sparse linear algebra, honest tables, and a submit-ready report without student-written code.
+RSSPCA is a recent PCA algorithm that an agent can reimplement from a published MM update and test on ORL faces in one sitting.
+With paper-aligned z-score, $56\times 46$ images, polluted-fit reconstruction, and three recognition seeds, the main claims hold in direction: RSMPCA/RSSPCA beat PCA under salt-and-pepper pollution, and RSSPCA leads at $r{=}5$ recognition ($0.900{\pm}0.012$).
+High-$r$ recognition is saturated for all methods; honesty about that ceiling is part of the assignment value---alongside searchable literature, checkable linear algebra, and a submit-ready report without student-written code.
 
 \begin{thebibliography}{9}
 \bibitem{wang2025rsspca}
@@ -304,11 +315,11 @@ PLOS One, 20(5):e0323281, 2025.
 \bibitem{kwak2008pca}
 N.~Kwak.
 Principal component analysis based on L1-norm maximization.
-IEEE Transactions on Pattern Analysis and Machine Intelligence, 2008.
+IEEE Transactions on Pattern Analysis and Machine Intelligence, 30(9):1672--1680, 2008.
 \bibitem{meng2012rspca}
 D.~Meng, Q.~Zhao, and Z.~Xu.
 Improve robustness of sparse PCA by L1-norm maximization.
-Pattern Recognition, 2012.
+Pattern Recognition, 45(1):487--497, 2012.
 \bibitem{samaria1994orl}
 F.~S.~Samaria and A.~C.~Harter.
 Parameterisation of a stochastic model for face identification.
