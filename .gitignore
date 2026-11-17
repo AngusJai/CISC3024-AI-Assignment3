@@ -9,3 +9,8 @@ __pycache__/
 data/cache/orl/
 *.npz
 data/cache/orl_faces.zip
+_tectonic
+report.aux
+report.log
+report.out
+report.synctex.gz
